@@ -40,6 +40,14 @@ pip install -r requirements.txt
 Precompute scripts need API keys — copy `.env.example` to `.env` and fill in
 `GEMINI_API_KEY`. The runtime (`rank.py`) needs neither keys nor network.
 
+### Data
+
+The 100k candidate pool (`data/candidates.jsonl`, ~465 MB) is **gitignored** —
+obtain it from the challenge bundle (`candidates.jsonl[.gz]`) and place it at
+`data/candidates.jsonl`. Confirm `wc -l data/candidates.jsonl` prints `100000`.
+The real field layout (identity under `profile`, behavioral under
+`redrob_signals`) is documented in [`docs/schema.md`](docs/schema.md).
+
 ## Architecture
 
 ```
@@ -58,6 +66,9 @@ file, when, with which model). See `plan/00_OVERVIEW.md` for the full design.
 ```
 redrob-ranker/
 ├── data/            # provided candidate pool (gitignored; see Setup)
+├── docs/
+│   ├── schema.md    # the REAL candidate schema + usage mapping + EDA findings
+│   └── challenge/   # organizer bundle, vendored (JD, schema, signals doc, samples)
 ├── artifacts/       # PRECOMPUTED, committed — embeddings, signals, flags, reasoning
 ├── src/
 │   ├── precompute/  # offline scripts (LLM + embeddings); never run at rank time

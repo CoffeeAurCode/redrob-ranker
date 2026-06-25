@@ -1,147 +1,165 @@
-"""Validate a redrob-ranker submission CSV against the format contract.
-
-This is a faithful, *to-spec* validator. The official challenge validator was not
-available at scaffolding time (Session 00), so this enforces the documented CSV
-invariants directly; swap in the official one if/when obtained (see PROGRESS.md).
-
-Contract enforced:
-  * exactly 100 data rows, header ``rank,candidate_id,score,reasoning``
-  * ranks are 1..100, unique, ascending and contiguous
-  * score is non-increasing as rank increases
-  * ties (equal score) are broken by candidate_id ascending
-  * reasoning is non-empty for every row
-
-Usage:
-    python validate_submission.py submission.csv
-
-Exit code 0 = valid; 1 = invalid (errors printed to stderr).
+#!/usr/bin/env python3
+"""
+Validate submission CSV per challenge rules (sections 2–3).
+Row 1 = header. Rows 2–101 = exactly 100 data rows. CSV only.
 """
 
-from __future__ import annotations
-
-import argparse
 import csv
+import re
 import sys
-from dataclasses import dataclass
-from itertools import pairwise
 from pathlib import Path
 
-EXPECTED_HEADER: list[str] = ["rank", "candidate_id", "score", "reasoning"]
-EXPECTED_ROWS: int = 100
+REQUIRED_HEADER = ["candidate_id", "rank", "score", "reasoning"]
+CANDIDATE_ID_PATTERN = re.compile(r"^CAND_[0-9]{7}$")
+DATA_ROW_START = 2
+EXPECTED_DATA_ROWS = 100
 
 
-@dataclass(frozen=True)
-class Row:
-    """One parsed submission row (line number kept for error messages)."""
+def validate_submission(csv_path):
+    errors = []
+    path = Path(csv_path)
 
-    line: int
-    rank: int
-    candidate_id: str
-    score: float
-    reasoning: str
+    if path.suffix.lower() != ".csv":
+        errors.append("Filename must use a .csv extension.")
+    elif not path.stem:
+        errors.append("Filename must be your registered participant ID (e.g. team_xxx.csv).")
 
-
-def _id_sort_key(candidate_id: str) -> tuple[int, object]:
-    """Order ids numerically when they are all integers, else lexicographically.
-
-    Returns a 2-tuple whose first element groups ints (0) before strings (1) so
-    the key is internally consistent regardless of which branch a value takes.
-    """
     try:
-        return (0, int(candidate_id))
-    except ValueError:
-        return (1, candidate_id)
+        with open(path, "r", encoding="utf-8", newline="") as f:
+            reader = csv.reader(f)
 
+            try:
+                header = next(reader)
+            except StopIteration:
+                errors.append("Row 1 must be the header row; file is empty.")
+                return errors
 
-def parse_rows(path: Path) -> tuple[list[Row], list[str]]:
-    """Read and type-parse the CSV. Returns (rows, structural_errors)."""
-    errors: list[str] = []
-    with path.open(newline="", encoding="utf-8") as fh:
-        reader = csv.reader(fh)
+            # Row 1: column names and their order come from this line only
+            if header != REQUIRED_HEADER:
+                errors.append(
+                    "Row 1 (header) must be exactly:\n"
+                    f"  {','.join(REQUIRED_HEADER)}\n"
+                    f"Found:\n"
+                    f"  {','.join(header)}"
+                )
+
+            data_rows = []
+            for row in reader:
+                if any(cell.strip() for cell in row):
+                    data_rows.append(row)
+
+    except UnicodeDecodeError:
+        errors.append("File must be UTF-8 encoded.")
+        return errors
+    except OSError as e:
+        errors.append(f"Cannot read file: {e}")
+        return errors
+
+    n = len(data_rows)
+    if n != EXPECTED_DATA_ROWS:
+        errors.append(
+            f"After the header (row 1), there must be exactly {EXPECTED_DATA_ROWS} "
+            f"data rows (rows {DATA_ROW_START}–{DATA_ROW_START + EXPECTED_DATA_ROWS - 1}); "
+            f"found {n}."
+        )
+
+    seen_ids = set()
+    seen_ranks = set()
+    by_rank = []
+
+    for i, cells in enumerate(data_rows):
+        row_num = DATA_ROW_START + i
+
+        if len(cells) != len(REQUIRED_HEADER):
+            errors.append(
+                f"Row {row_num}: expected {len(REQUIRED_HEADER)} columns "
+                f"({','.join(REQUIRED_HEADER)}), got {len(cells)}."
+            )
+            continue
+
+        row = dict(zip(REQUIRED_HEADER, cells))
+        cid = row["candidate_id"].strip()
+        rank_s = row["rank"].strip()
+        score_s = row["score"].strip()
+
+        if not cid:
+            errors.append(f"Row {row_num}: candidate_id is required.")
+        elif not CANDIDATE_ID_PATTERN.match(cid):
+            errors.append(
+                f"Row {row_num}: candidate_id must be CAND_XXXXXXX (7 digits)."
+            )
+        elif cid in seen_ids:
+            errors.append(f"Row {row_num}: duplicate candidate_id '{cid}'.")
+        else:
+            seen_ids.add(cid)
+
         try:
-            header = next(reader)
-        except StopIteration:
-            return [], ["file is empty (no header row)"]
+            rank = int(rank_s)
+            if str(rank) != rank_s:
+                raise ValueError
+            if not 1 <= rank <= 100:
+                errors.append(f"Row {row_num}: rank must be between 1 and 100.")
+            elif rank in seen_ranks:
+                errors.append(f"Row {row_num}: duplicate rank {rank}.")
+            else:
+                seen_ranks.add(rank)
+        except ValueError:
+            errors.append(f"Row {row_num}: rank must be an integer (1–100).")
+            rank = None
 
-        if header != EXPECTED_HEADER:
-            errors.append(f"header must be {EXPECTED_HEADER}, got {header}")
-            return [], errors
+        try:
+            score = float(score_s)
+        except ValueError:
+            errors.append(f"Row {row_num}: score must be a float.")
+            score = None
 
-        rows: list[Row] = []
-        for line_no, record in enumerate(reader, start=2):
-            if len(record) != len(EXPECTED_HEADER):
-                errors.append(f"line {line_no}: expected 4 fields, got {len(record)}")
-                continue
-            rank_s, cid, score_s, reasoning = record
-            try:
-                rank = int(rank_s)
-            except ValueError:
-                errors.append(f"line {line_no}: rank {rank_s!r} is not an integer")
-                continue
-            try:
-                score = float(score_s)
-            except ValueError:
-                errors.append(f"line {line_no}: score {score_s!r} is not a number")
-                continue
-            rows.append(Row(line_no, rank, cid, score, reasoning))
-    return rows, errors
+        if rank is not None and score is not None and cid:
+            by_rank.append((rank, score, cid))
 
+    missing = set(range(1, 101)) - seen_ranks
+    if missing:
+        errors.append(
+            f"Each rank 1–100 must appear exactly once; missing: {sorted(missing)}"
+        )
 
-def check_invariants(rows: list[Row]) -> list[str]:
-    """Validate the semantic contract over already-parsed rows."""
-    errors: list[str] = []
+    by_rank.sort(key=lambda x: x[0])
 
-    if len(rows) != EXPECTED_ROWS:
-        errors.append(f"expected {EXPECTED_ROWS} data rows, got {len(rows)}")
-
-    ranks = [r.rank for r in rows]
-    if ranks != list(range(1, len(rows) + 1)):
-        errors.append("ranks must be 1..N, unique, ascending and contiguous")
-
-    for prev, curr in pairwise(rows):
-        if curr.score > prev.score:
+    for i in range(len(by_rank) - 1):
+        r1, s1, _ = by_rank[i]
+        r2, s2, _ = by_rank[i + 1]
+        if s1 < s2:
             errors.append(
-                f"line {curr.line}: score {curr.score} > previous {prev.score} "
-                "(scores must be non-increasing)"
-            )
-        elif curr.score == prev.score and _id_sort_key(curr.candidate_id) < _id_sort_key(
-            prev.candidate_id
-        ):
-            errors.append(
-                f"line {curr.line}: tie at score {curr.score} but candidate_id "
-                f"{curr.candidate_id!r} < previous {prev.candidate_id!r} "
-                "(ties must break by candidate_id ascending)"
+                f"score must be non-increasing by rank: "
+                f"rank {r1} ({s1}) < rank {r2} ({s2})."
             )
 
-    for r in rows:
-        if not r.reasoning.strip():
-            errors.append(f"line {r.line}: reasoning is empty")
+    for i in range(len(by_rank) - 1):
+        r1, s1, c1 = by_rank[i]
+        r2, s2, c2 = by_rank[i + 1]
+        if s1 == s2 and c1 > c2:
+            errors.append(
+                f"Equal scores at ranks {r1} and {r2}: "
+                f"tie-break requires candidate_id ascending "
+                f"({c1!r} > {c2!r})."
+            )
 
     return errors
 
 
-def validate(path: Path) -> list[str]:
-    """Return a list of human-readable errors; empty list means valid."""
-    if not path.is_file():
-        return [f"file not found: {path}"]
-    rows, structural = parse_rows(path)
-    return structural + check_invariants(rows)
+def main():
+    if len(sys.argv) != 2:
+        print("Usage: python validate_submission.py <participant_id>.csv")
+        sys.exit(1)
 
-
-def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("csv_path", type=Path, help="path to the submission CSV")
-    args = parser.parse_args(argv)
-
-    errors = validate(args.csv_path)
+    errors = validate_submission(sys.argv[1])
     if errors:
-        print(f"INVALID: {args.csv_path} ({len(errors)} error(s))", file=sys.stderr)
-        for err in errors:
-            print(f"  - {err}", file=sys.stderr)
-        return 1
-    print(f"VALID: {args.csv_path}")
-    return 0
+        print(f"Validation failed ({len(errors)} issue(s)):\n")
+        for e in errors:
+            print(f"- {e}")
+        sys.exit(1)
+
+    print("Submission is valid.")
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    main()

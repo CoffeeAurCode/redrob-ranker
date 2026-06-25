@@ -4,26 +4,37 @@ version = "0.1.0"
 description = "Offline-precompute, CPU-only transparent candidate ranker for the Redrob challenge."
 requires-python = ">=3.11,<3.12"
 
+# validate_submission.py is the OFFICIAL validator, vendored verbatim from the
+# challenge bundle (organizers run exactly this at Stage 3). It is not our code,
+# so it is excluded from our formatter/linter/type-checker to keep it pristine.
 [tool.black]
 line-length = 100
 target-version = ["py311"]
+extend-exclude = "validate_submission\\.py"
 
 [tool.ruff]
 line-length = 100
 target-version = "py311"
+extend-exclude = ["validate_submission.py"]
 
 [tool.ruff.lint]
 # E/F pycodestyle+pyflakes, I import-sort, UP pyupgrade, B bugbear,
 # SIM simplify, RUF ruff-specific. Explicit over clever (see CONVENTIONS.md).
 select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
 
+[tool.pytest.ini_options]
+# Put the repo root on sys.path so tests import the `src` package directly
+# (`from src.io_utils import ...`). conftest.py is auto-discovered by pytest.
+pythonpath = ["."]
+testpaths = ["tests"]
+
 [tool.mypy]
 python_version = "3.11"
 strict = true
-# Add "src", "eval", "tests" to this list as each gains modules (they are empty
-# at Session 00, and mypy errors on a directory with no .py files). strict
-# typing applies to all project code per CONVENTIONS.md.
-files = ["validate_submission.py"]
+# Strict typing applies to all OUR code per CONVENTIONS.md. The official
+# validate_submission.py is vendored third-party and intentionally not type-
+# checked. `eval/` is still empty (Session 07) — add it once it has modules.
+files = ["src", "tests"]
 
 # ML libraries ship without type stubs; don't fail strict typing on them.
 [[tool.mypy.overrides]]

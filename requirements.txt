@@ -1,0 +1,29 @@
+# redrob-ranker dependencies — target Python 3.11.
+#
+# Two tiers, deliberately separated:
+#   * RUNTIME  — the ONLY packages src/rank.py imports. It must run on CPU, with
+#                no network, in <5 min. Keep this set minimal (numpy + pandas).
+#   * PRECOMPUTE — offline-only (embeddings, LLM signals). Never imported by
+#                rank.py. Heavy deps (torch via sentence-transformers) live here.
+#   * DEV — formatting, typing, tests.
+#
+# Exact versions are pinned (frozen from a clean install) for reproducibility.
+
+# --- RUNTIME (rank.py) -------------------------------------------------------
+numpy==2.4.6
+pandas==3.0.3
+
+# --- PRECOMPUTE (src/precompute/* only) --------------------------------------
+sentence-transformers==5.6.0   # pulls torch (CPU build on Windows); embeds career text
+scikit-learn==1.9.0            # cheap shortlist filter / cosine utilities
+google-generativeai==0.8.6     # Gemini 2.5 Flash lane (offline structured extraction)
+python-dotenv==1.2.2           # loads GEMINI_API_KEY from .env (precompute only)
+pyyaml==6.0.3                  # read/write submission_metadata.yaml + configs
+
+# --- DEV ---------------------------------------------------------------------
+pytest==9.1.1
+ruff==0.15.20
+black==26.5.1
+mypy==2.1.0
+pandas-stubs==3.0.3.260530     # typing stubs for pandas (mypy --strict)
+types-PyYAML==6.0.12.20260518  # typing stubs for pyyaml

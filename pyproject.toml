@@ -1,0 +1,36 @@
+[project]
+name = "redrob-ranker"
+version = "0.1.0"
+description = "Offline-precompute, CPU-only transparent candidate ranker for the Redrob challenge."
+requires-python = ">=3.11,<3.12"
+
+[tool.black]
+line-length = 100
+target-version = ["py311"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+# E/F pycodestyle+pyflakes, I import-sort, UP pyupgrade, B bugbear,
+# SIM simplify, RUF ruff-specific. Explicit over clever (see CONVENTIONS.md).
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+# Add "src", "eval", "tests" to this list as each gains modules (they are empty
+# at Session 00, and mypy errors on a directory with no .py files). strict
+# typing applies to all project code per CONVENTIONS.md.
+files = ["validate_submission.py"]
+
+# ML libraries ship without type stubs; don't fail strict typing on them.
+[[tool.mypy.overrides]]
+module = [
+    "sentence_transformers.*",
+    "google.generativeai.*",
+    "sklearn.*",
+    "torch.*",
+]
+ignore_missing_imports = true

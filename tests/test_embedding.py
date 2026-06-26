@@ -17,12 +17,14 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+import src.embedding as emb_mod
 from src.config import EMBEDDING
 from src.embedding import (
-    EMBEDDINGS_FILE,
+    EMBEDDINGS_PREFIX,
     IDS_FILE,
     META_FILE,
     build_meta,
+    embeddings_exist,
     load_embeddings,
     passage_text,
     query_text,
@@ -84,7 +86,7 @@ def test_save_load_round_trip_is_aligned(tmp_path: Path) -> None:
     save_artifacts(tmp_path, ids, embeddings, meta)
     loaded_ids, loaded_emb = load_embeddings(tmp_path, mmap=False)
 
-    assert (tmp_path / EMBEDDINGS_FILE).exists()
+    assert embeddings_exist(tmp_path)
     assert (tmp_path / IDS_FILE).exists()
     assert (tmp_path / META_FILE).exists()
     assert loaded_ids.tolist() == ids.tolist()
@@ -98,6 +100,26 @@ def test_save_artifacts_rejects_misaligned_inputs(tmp_path: Path) -> None:
     meta = build_meta(n=2, source="t", sentence_transformers_version="x", created="2026-06-26")
     with pytest.raises(ValueError, match="mismatch"):
         save_artifacts(tmp_path, ids, embeddings, meta)
+
+
+def test_sharding_splits_and_stitches_losslessly(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    # Force a tiny shard budget so a small array still splits into many files.
+    monkeypatch.setattr(emb_mod, "_MAX_SHARD_BYTES", 4096)
+    rng = np.random.default_rng(0)
+    ids = np.array([f"CAND_{i:07d}" for i in range(50)])
+    embeddings = to_float16(rng.standard_normal((50, EMBEDDING.dim)).astype(np.float32))
+    meta = build_meta(n=50, source="t", sentence_transformers_version="x", created="2026-06-26")
+
+    save_artifacts(tmp_path, ids, embeddings, meta)
+
+    shard_files = sorted(tmp_path.glob(f"{EMBEDDINGS_PREFIX}_*.npy"))
+    assert len(shard_files) > 1  # actually split across files
+    loaded_ids, loaded_emb = load_embeddings(tmp_path, mmap=False)
+    assert loaded_ids.tolist() == ids.tolist()
+    assert np.array_equal(loaded_emb, embeddings)  # stitched back in row order, lossless
+    import json
+
+    assert json.loads((tmp_path / META_FILE).read_text())["shards"] == len(shard_files)
 
 
 def test_build_meta_records_provenance() -> None:
@@ -120,7 +142,7 @@ def test_build_meta_records_provenance() -> None:
 # Real artifacts (Definition of Done) — only when precompute 01 has been run.
 # --------------------------------------------------------------------------- #
 @pytest.mark.skipif(
-    not (ARTIFACTS_DIR / EMBEDDINGS_FILE).exists(),
+    not embeddings_exist(ARTIFACTS_DIR),
     reason="run src/precompute/01_embed_candidates.py first",
 )
 def test_real_artifacts_are_aligned_and_float16() -> None:

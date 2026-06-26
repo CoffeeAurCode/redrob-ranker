@@ -72,8 +72,10 @@ python src/precompute/sanity_rank.py --top 30         # eyeball top matches
 
 Encodes each candidate's **career text** (skills excluded — see
 `src/profile_text.py`) with **`BAAI/bge-base-en-v1.5`** (dim 768, L2-normalized),
-storing `candidate_embeddings.npy` (float16, mmap-friendly) row-aligned to
-`candidate_ids.npy`, plus `embeddings_meta.json` for provenance. The run is
+storing the embeddings as float16 **row-shards** `candidate_embeddings_NNN.npy`
+(split so each stays under GitHub's 100 MiB limit — the repo is self-contained,
+no Git LFS), row-aligned to `candidate_ids.npy`, plus `embeddings_meta.json` for
+provenance. `src/embedding.py` stitches the shards back transparently on load. The run is
 checkpointed under `artifacts/.embed_ckpt/`, so it is **resumable** — re-run after
 an interruption and it continues from the last completed chunk. Cosine similarity
 is a plain dot product (vectors are normalized). BGE is asymmetric: candidate

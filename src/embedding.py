@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 import numpy as np
 
@@ -33,9 +33,18 @@ if TYPE_CHECKING:  # avoid importing torch at module load (and for type checkers
     from sentence_transformers import SentenceTransformer
 
 # Artifact file names (defined once; rank.py and Session 03 reuse these).
-EMBEDDINGS_FILE = "candidate_embeddings.npy"
+# The embeddings matrix is stored as one or more row-shards
+# (``candidate_embeddings_000.npy`` …) so no single file exceeds GitHub's 100 MiB
+# push limit and the repo stays self-contained (no Git LFS). That matters because
+# Stage 3 re-runs rank.py from a plain clone in a network-less container, where an
+# un-pulled LFS pointer would be a silent failure.
+EMBEDDINGS_PREFIX = "candidate_embeddings"
+EMBEDDINGS_FILE = f"{EMBEDDINGS_PREFIX}.npy"  # legacy single-file (still loadable)
 IDS_FILE = "candidate_ids.npy"
 META_FILE = "embeddings_meta.json"
+
+# Keep each shard under GitHub's 50 MiB warning (and well under the 100 MiB limit).
+_MAX_SHARD_BYTES = 45 * 1024 * 1024
 
 
 # --------------------------------------------------------------------------- #
@@ -95,19 +104,59 @@ def to_float16(vectors: np.ndarray) -> np.ndarray:
 # --------------------------------------------------------------------------- #
 # Persistence + provenance.                                                    #
 # --------------------------------------------------------------------------- #
+def _shard_name(index: int) -> str:
+    return f"{EMBEDDINGS_PREFIX}_{index:03d}.npy"
+
+
+def _shard_paths(artifacts_dir: Path) -> list[Path]:
+    """Embedding shard files in row order (empty if only a legacy file exists)."""
+    return sorted(artifacts_dir.glob(f"{EMBEDDINGS_PREFIX}_*.npy"))
+
+
+def _plan_shard_count(embeddings: np.ndarray) -> int:
+    """How many row-shards keep each file under ``_MAX_SHARD_BYTES`` (>= 1)."""
+    return max(1, -(-embeddings.nbytes // _MAX_SHARD_BYTES))  # ceil division
+
+
+def embeddings_exist(artifacts_dir: Path) -> bool:
+    """True if sharded (or legacy single-file) embeddings are present."""
+    return bool(_shard_paths(artifacts_dir)) or (artifacts_dir / EMBEDDINGS_FILE).exists()
+
+
 def save_artifacts(
     out_dir: Path,
     ids: np.ndarray,
     embeddings: np.ndarray,
     meta: dict[str, Any],
 ) -> None:
-    """Write the embeddings matrix, the aligned id array, and the manifest."""
+    """Write the row-sharded embeddings, the aligned id array, and the manifest.
+
+    The matrix is split by rows into ``candidate_embeddings_<NNN>.npy`` shards,
+    each under ``_MAX_SHARD_BYTES`` so every file is committable to GitHub. The
+    caller's ``meta`` is preserved and augmented with the shard count.
+    """
     if len(ids) != embeddings.shape[0]:
         raise ValueError(f"id/row mismatch: {len(ids)} ids vs {embeddings.shape[0]} rows")
     out_dir.mkdir(parents=True, exist_ok=True)
-    np.save(out_dir / EMBEDDINGS_FILE, embeddings)
+    _clear_embeddings(out_dir)
+
+    shards = np.array_split(embeddings, _plan_shard_count(embeddings), axis=0)
+    for index, shard in enumerate(shards):
+        np.save(out_dir / _shard_name(index), shard)
+
     np.save(out_dir / IDS_FILE, ids)
-    (out_dir / META_FILE).write_text(json.dumps(meta, indent=2) + "\n", encoding="utf-8")
+    (out_dir / META_FILE).write_text(
+        json.dumps({**meta, "shards": len(shards)}, indent=2) + "\n", encoding="utf-8"
+    )
+
+
+def _clear_embeddings(out_dir: Path) -> None:
+    """Remove any existing shards / legacy file so a re-save leaves no stale rows."""
+    for path in out_dir.glob(f"{EMBEDDINGS_PREFIX}_*.npy"):
+        path.unlink()
+    legacy = out_dir / EMBEDDINGS_FILE
+    if legacy.exists():
+        legacy.unlink()
 
 
 def load_embeddings(
@@ -115,15 +164,20 @@ def load_embeddings(
     *,
     mmap: bool = True,
 ) -> tuple[np.ndarray, np.ndarray]:
-    """Load ``(ids, embeddings)``; embeddings are memory-mapped by default.
+    """Load ``(ids, embeddings)`` from row-shards (or a legacy single file).
 
-    ``mmap=True`` is the rank-time path: the float16 matrix stays on disk and is
-    paged in on demand, keeping RAM low (Session 10).
+    A single shard is returned memory-mapped when ``mmap=True`` (lazy, low RAM);
+    multiple shards are stitched with ``np.concatenate``, which materializes the
+    full float16 matrix (~150 MiB for the 100k pool — trivial under the 16 GB
+    budget). ``mmap`` still avoids a float32 upcast on load.
     """
-    embeddings = np.load(
-        artifacts_dir / EMBEDDINGS_FILE,
-        mmap_mode="r" if mmap else None,
-    )
+    mode: Literal["r"] | None = "r" if mmap else None
+    shards = _shard_paths(artifacts_dir)
+    if shards:
+        parts = [np.load(path, mmap_mode=mode) for path in shards]
+        embeddings = parts[0] if len(parts) == 1 else np.concatenate(parts, axis=0)
+    else:
+        embeddings = np.load(artifacts_dir / EMBEDDINGS_FILE, mmap_mode=mode)
     ids = np.load(artifacts_dir / IDS_FILE)
     return ids, embeddings
 

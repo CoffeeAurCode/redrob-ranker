@@ -1,0 +1,15 @@
+{
+  "model_id": "BAAI/bge-base-en-v1.5",
+  "dim": 768,
+  "n": 100000,
+  "normalize": true,
+  "similarity": "cosine == dot product (vectors L2-normalized)",
+  "embeddings_dtype": "float16",
+  "passage_prefix": "",
+  "query_prefix": "Represent this sentence for searching relevant passages: ",
+  "text_source": "profile_text.build_embedding_text (career text; skills excluded)",
+  "source": "candidates.jsonl",
+  "sentence_transformers_version": "5.5.1",
+  "created": "2026-06-26",
+  "shards": 4
+}

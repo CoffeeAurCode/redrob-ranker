@@ -47,6 +47,7 @@ if str(REPO_ROOT) not in sys.path:
 from src.config import EMBEDDING  # noqa: E402  (after sys.path bootstrap)
 from src.embedding import (  # noqa: E402
     build_meta,
+    embeddings_exist,
     encode_normalized,
     load_model,
     passage_text,
@@ -142,9 +143,8 @@ def run_embedding(
 ) -> None:
     """Embed the pool into ``out_dir`` with resumable checkpointing."""
     out_dir.mkdir(parents=True, exist_ok=True)
-    final = out_dir / "candidate_embeddings.npy"
-    if final.exists() and not force:
-        logger.info("artifacts already present at %s — use --force to rebuild", final)
+    if embeddings_exist(out_dir) and not force:
+        logger.info("embeddings already present in %s — use --force to rebuild", out_dir)
         return
 
     ckpt = out_dir / CKPT_DIRNAME

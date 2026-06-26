@@ -209,8 +209,15 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
+def _quiet_third_party_loggers() -> None:
+    """Mute the HF/httpx/transformers INFO chatter so our progress log is readable."""
+    for name in ("httpx", "httpcore", "urllib3", "huggingface_hub", "transformers", "filelock"):
+        logging.getLogger(name).setLevel(logging.WARNING)
+
+
 def main(argv: list[str] | None = None) -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s  %(levelname)s  %(message)s")
+    _quiet_third_party_loggers()
     args = parse_args(argv)
     run_embedding(
         data_path=args.candidates,

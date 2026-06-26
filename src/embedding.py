@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
 
@@ -68,7 +68,7 @@ def load_model(cfg: EmbeddingConfig = EMBEDDING) -> SentenceTransformer:
     """Load the sentence-transformer once. Offline-only; never called by rank.py."""
     from sentence_transformers import SentenceTransformer
 
-    return SentenceTransformer(cfg.model_id)
+    return cast("SentenceTransformer", SentenceTransformer(cfg.model_id))
 
 
 def encode_normalized(

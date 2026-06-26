@@ -67,7 +67,7 @@ def _titles_for(ids: np.ndarray, candidates_path: Path) -> dict[str, str]:
     titles: dict[str, str] = {}
     for candidate in load_candidates(candidates_path):
         cid = candidate.get("candidate_id")
-        if cid in wanted:
+        if cid is not None and cid in wanted:
             profile = candidate.get("profile") or {}
             titles[cid] = profile.get("current_title") or "(no title)"
             if len(titles) == len(wanted):

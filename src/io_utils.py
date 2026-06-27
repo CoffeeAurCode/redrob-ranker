@@ -19,13 +19,27 @@ behavioral fields under ``redrob_signals``, *not* at the top level).
 
 from __future__ import annotations
 
+import io
 import json
 import logging
+import sys
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any, TypedDict, cast
 
 logger = logging.getLogger(__name__)
+
+
+def use_utf8_stdout() -> None:
+    """Force UTF-8 stdout so precompute CLIs can print non-ASCII safely.
+
+    Windows consoles default to cp1252, which raises ``UnicodeEncodeError`` on the
+    em-dashes/arrows in the JD text and the ``✓`` marks in the sanity reports. This
+    is a no-op where ``stdout`` isn't a regular text stream (e.g. captured under
+    pytest). rank.py never calls this — it is a precompute/CLI convenience only.
+    """
+    if isinstance(sys.stdout, io.TextIOWrapper):
+        sys.stdout.reconfigure(encoding="utf-8")
 
 
 # --------------------------------------------------------------------------- #

@@ -293,14 +293,22 @@ class ScoringConfig:
     glance (and defensible line-by-line at Stage 5).
     """
 
-    # base_fit term weights (w1..w7). Sum to 1.0 — see the class docstring.
-    w_career_sim: float = 0.22  # w1: semantic career↔JD fit (embedding cosine)
-    w_role_match: float = 0.20  # w2: archetype match to the target role family
-    w_domain_match: float = 0.15  # w3: NLP/IR/recsys problem domain
-    w_product_ratio: float = 0.12  # w4: product- vs services/consulting-company career
-    w_seniority_fit: float = 0.08  # w5: inside the JD's experience band
-    w_built_ranking: float = 0.15  # w6: shipped a ranking/search/recsys system (the must-have)
-    w_lexical_evidence: float = 0.08  # w7: corroborating career-text keyword evidence
+    # base_fit term weights (w1..w7). Sum to 1.0 (test_term_weights_sum_to_one).
+    # FROZEN in Session 08: the gold metric sits on a flat plateau in weight-space (every
+    # +/-20% single-weight perturbation moves the challenge-weighted score by < 0.008), so
+    # these stay at their interpretable Session-06 values rather than overfit ~66 gold
+    # labels. "abl" after each is the Session-08 ablation drop in the challenge-weighted
+    # score (set the term to 0, renormalize the other six, re-measure) -- every term earns
+    # its weight. See eval/calibration_report.md for the full sweep/stability/ablation.
+    w_career_sim: float = 0.22  # w1: semantic career-vs-JD fit (cosine).      abl -0.0075
+    w_role_match: float = 0.20  # w2: archetype match to target role family.   abl -0.0071
+    w_domain_match: float = 0.15  # w3: NLP/IR/recsys problem domain.            abl -0.0066
+    w_product_ratio: float = 0.12  # w4: product- vs services/consulting career.  abl -0.0059
+    w_seniority_fit: float = 0.08  # w5: inside the JD experience band.           abl -0.0260 (top)
+    w_built_ranking: float = 0.15  # w6: shipped a ranking/search system.         abl -0.0079
+    w_lexical_evidence: float = (
+        0.08  # w7: corroborating career-text evidence.   abl -0.0003 (least)
+    )
 
     # The maps are immutable module-level constants; default_factory hands back the
     # shared proxy (a frozen dataclass forbids an unhashable mappingproxy as a bare
@@ -329,7 +337,15 @@ class ScoringConfig:
     # availability: blend of behavioral signals squashed to [floor, 1.0] so a weak
     # candidate is never zeroed by availability alone (it is a modifier, not fit).
     availability_weights: Mapping[str, float] = field(default_factory=lambda: _AVAILABILITY_WEIGHTS)
-    availability_floor: float = 0.5
+    # Session-08 calibration lever (0.50 → 0.70). The floor is the *gentleness* of the
+    # availability multiplier: at 0.70 the worst down-weight is 30%, so a genuine ideal
+    # hire who is merely less active is moved down, never buried. This is the one knob
+    # Session 08 changed from the Session-06 defaults — it is both principled (the JD
+    # ranks fit; reachability is a tie-breaker, not a disqualifier) and the gold-metric
+    # peak: 0.50→0.70 lifts NDCG@10 0.987→1.000 and the challenge-weighted score
+    # 0.985→0.992, pulls the six inactive-but-perfect tier-5/4 fits up ~50-80 ranks, and
+    # 0.75 already regresses. honeypots-in-top-100 stays 0. See eval/calibration_report.md.
+    availability_floor: float = 0.70
     # Recency decay: last_active is scored against a FIXED snapshot date (never
     # datetime.now()) so rank.py stays byte-identical on re-run. The window is the
     # dataset snapshot; activity older than the horizon decays to 0.

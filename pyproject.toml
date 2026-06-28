@@ -33,8 +33,8 @@ python_version = "3.11"
 strict = true
 # Strict typing applies to all OUR code per CONVENTIONS.md. The official
 # validate_submission.py is vendored third-party and intentionally not type-
-# checked. `eval/` is still empty (Session 07) — add it once it has modules.
-files = ["src", "tests"]
+# checked.
+files = ["src", "tests", "eval"]
 
 # ML libraries ship without type stubs; don't fail strict typing on them.
 [[tool.mypy.overrides]]

@@ -1,0 +1,169 @@
+{
+  "challenge_weighted_score": 0.992405,
+  "checks": {
+    "disqualifier_flagged_in_top_10": 0,
+    "disqualifier_flagged_in_top_100": 0,
+    "disqualifier_flagged_in_top_50": 0,
+    "honeypot_ids_in_top_100": [],
+    "honeypots_in_top_100": 0,
+    "inactive_but_perfect": [
+      {
+        "availability": 0.829,
+        "candidate_id": "CAND_0060072",
+        "rank": 190,
+        "tier": 5
+      },
+      {
+        "availability": 0.826,
+        "candidate_id": "CAND_0041611",
+        "rank": 202,
+        "tier": 5
+      },
+      {
+        "availability": 0.812,
+        "candidate_id": "CAND_0092278",
+        "rank": 203,
+        "tier": 5
+      },
+      {
+        "availability": 0.832,
+        "candidate_id": "CAND_0052498",
+        "rank": 206,
+        "tier": 4
+      },
+      {
+        "availability": 0.821,
+        "candidate_id": "CAND_0088438",
+        "rank": 218,
+        "tier": 5
+      },
+      {
+        "availability": 0.822,
+        "candidate_id": "CAND_0065927",
+        "rank": 223,
+        "tier": 4
+      }
+    ],
+    "off_target_or_flagged_in_top_50": [],
+    "tier_ranks": {
+      "0": [
+        1167
+      ],
+      "1": [
+        777,
+        846,
+        855,
+        857,
+        863,
+        865,
+        915,
+        952,
+        995,
+        1045,
+        1082,
+        1191,
+        1192,
+        1193
+      ],
+      "2": [
+        359,
+        396,
+        569,
+        642,
+        653,
+        681,
+        719,
+        845,
+        847,
+        850,
+        852,
+        856,
+        870,
+        906,
+        917,
+        926,
+        940,
+        943
+      ],
+      "3": [
+        204,
+        281,
+        407,
+        494,
+        609,
+        636
+      ],
+      "4": [
+        11,
+        15,
+        146,
+        149,
+        181,
+        206,
+        207,
+        223,
+        304
+      ],
+      "5": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        12,
+        14,
+        21,
+        26,
+        190,
+        202,
+        203,
+        218
+      ]
+    },
+    "traps_in_top_50": []
+  },
+  "config": {
+    "snapshot_date": "2026-06-28",
+    "weights": {
+      "built_ranking": 0.15,
+      "career_sim": 0.22,
+      "domain_match": 0.15,
+      "lexical_evidence": 0.08,
+      "product_ratio": 0.12,
+      "role_match": 0.2,
+      "seniority_fit": 0.08
+    }
+  },
+  "gold": {
+    "judged_in_ranking": 66,
+    "labeled": 68,
+    "missing_but_relevant": [],
+    "missing_from_ranking": [
+      "CAND_0003582",
+      "CAND_0007353"
+    ],
+    "tier_histogram": {
+      "0": 1,
+      "1": 14,
+      "2": 18,
+      "3": 6,
+      "4": 9,
+      "5": 18
+    }
+  },
+  "metrics": {
+    "map": 0.991147,
+    "ndcg_at_10": 1.0,
+    "ndcg_at_50": 0.97911,
+    "precision_at_10": 1.0
+  },
+  "ranking": {
+    "size": 1193
+  },
+  "relevance_cutoff": 3
+}

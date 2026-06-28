@@ -11,6 +11,7 @@ against drift from the ``llm_signals`` controlled vocabulary.
 from __future__ import annotations
 
 import dataclasses
+from typing import Any
 
 import pytest
 
@@ -31,7 +32,7 @@ BASE_TERMS = (
 )
 
 
-def make_features(**overrides: object) -> Features:
+def make_features(**overrides: Any) -> Features:
     """A middling, valid feature vector; override individual fields per test."""
     base = Features(
         candidate_id="CAND_0000001",
@@ -105,7 +106,8 @@ def test_honeypot_zeroes_a_perfect_candidate() -> None:
 @pytest.mark.parametrize("term", BASE_TERMS)
 def test_raising_a_base_feature_does_not_lower_final(term: str) -> None:
     base = make_features(**{term: 0.4})  # no flags → net_fit positive, so strictly up
-    raised = dataclasses.replace(base, **{term: 0.7})
+    change: dict[str, Any] = {term: 0.7}
+    raised = dataclasses.replace(base, **change)
     assert score(raised).final > score(base).final
 
 

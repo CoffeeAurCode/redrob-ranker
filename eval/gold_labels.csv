@@ -1,0 +1,69 @@
+candidate_id,tier,note
+CAND_0064326,5,human-reviewed; clear_fit
+CAND_0079387,5,human-reviewed; clear_fit
+CAND_0041610,5,human-reviewed; clear_fit
+CAND_0065195,5,human-reviewed; clear_fit
+CAND_0088025,5,human-reviewed; clear_fit
+CAND_0018722,5,human-reviewed; clear_fit
+CAND_0050876,5,human-reviewed; clear_fit
+CAND_0041669,5,human-reviewed; clear_fit
+CAND_0018549,5,human-reviewed; clear_fit
+CAND_0054394,4,human-reviewed; clear_fit
+CAND_0052682,5,human-reviewed; clear_fit
+CAND_0068811,5,human-reviewed; clear_fit
+CAND_0036184,5,human-reviewed; clear_fit
+CAND_0077337,5,human-reviewed; clear_fit
+CAND_0074225,4,human-reviewed; clear_fit
+CAND_0044222,5,human-reviewed; clear_fit
+CAND_0092278,5,"inactive-but-perfect: strong fit (base 0.94) but low availability (0.69); labeled on fit, not reachability"
+CAND_0088438,5,human-reviewed; inactive_but_perfect
+CAND_0065927,4,human-reviewed; inactive_but_perfect
+CAND_0041611,5,human-reviewed; inactive_but_perfect
+CAND_0060072,5,human-reviewed; inactive_but_perfect
+CAND_0052498,4,human-reviewed; inactive_but_perfect
+CAND_0073007,2,"arguable: cv_primary flag but genuine recsys/re-ranking evidence; held at 2, 3 defensible"
+CAND_0081709,2,human-reviewed; cv_bait
+CAND_0022127,2,human-reviewed; cv_bait
+CAND_0081480,2,human-reviewed; cv_bait
+CAND_0081321,2,human-reviewed; cv_bait
+CAND_0017090,2,human-reviewed; cv_bait
+CAND_0065835,2,human-reviewed; consulting_only
+CAND_0029449,2,human-reviewed; consulting_only
+CAND_0021729,2,human-reviewed; consulting_only
+CAND_0015582,2,human-reviewed; consulting_only
+CAND_0016678,2,human-reviewed; job_hopper
+CAND_0070930,1,human-reviewed; job_hopper
+CAND_0077504,1,human-reviewed; job_hopper
+CAND_0061175,2,stale_coding = JD HARD disqualifier (no prod coding in 18mo); capped at 2 despite recsys background
+CAND_0050146,1,human-reviewed; stale_coding
+CAND_0054703,1,human-reviewed; semantic_mismatch
+CAND_0092468,1,human-reviewed; semantic_mismatch
+CAND_0085199,1,human-reviewed; semantic_mismatch
+CAND_0082973,1,human-reviewed; semantic_mismatch
+CAND_0052195,4,title 'Computer Vision Engineer' but career is recsys/ranking - plain-language fit the title hides
+CAND_0009722,4,human-reviewed; title_surprise
+CAND_0061244,4,human-reviewed; title_surprise
+CAND_0057453,3,human-reviewed; title_surprise
+CAND_0046924,4,human-reviewed; title_surprise
+CAND_0048166,3,human-reviewed; mid_band
+CAND_0027663,4,human-reviewed; mid_band
+CAND_0036604,2,base_fit inflated by role_match; evidence shows primarily CV + no ranking shipped -> 2
+CAND_0016268,2,human-reviewed; mid_band
+CAND_0073556,3,human-reviewed; mid_band
+CAND_0065139,3,human-reviewed; mid_band
+CAND_0060886,2,human-reviewed; mid_band
+CAND_0071131,2,human-reviewed; mid_band
+CAND_0002037,3,human-reviewed; mid_band
+CAND_0025293,3,human-reviewed; mid_band
+CAND_0025109,1,human-reviewed; low_band
+CAND_0019845,2,human-reviewed; low_band
+CAND_0016801,2,human-reviewed; low_band
+CAND_0078856,1,human-reviewed; low_band
+CAND_0097079,1,human-reviewed; low_band
+CAND_0066713,1,human-reviewed; low_band
+CAND_0037000,0,honeypot: reads like an ideal Search Engineer (base 0.914) but impossible (2.7y total vs a longer single role) - headline trap example
+CAND_0093540,1,"tier 0 reserved for traps/honeypots; this is a real (off-target, stacked-disqualifier) engineer -> 1"
+CAND_0088602,1,human-reviewed; bottom_floor
+CAND_0078429,1,human-reviewed; bottom_floor
+CAND_0003582,0,human-reviewed; honeypot_pool
+CAND_0007353,0,human-reviewed; honeypot_pool

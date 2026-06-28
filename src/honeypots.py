@@ -29,7 +29,9 @@ and writes that artifact.
 
 from __future__ import annotations
 
+import json
 from datetime import date
+from pathlib import Path
 from typing import TypedDict
 
 from src.config import HONEYPOT, HoneypotConfig
@@ -127,6 +129,25 @@ def detect_honeypot(candidate: Candidate, cfg: HoneypotConfig = HONEYPOT) -> Hon
     if not reasons:
         return None
     return {"honeypot": True, "reasons": reasons}
+
+
+# --------------------------------------------------------------------------- #
+# Consume the precomputed artifact (rank-time / scoring side).                  #
+# --------------------------------------------------------------------------- #
+def load_flagged_ids(artifacts_dir: Path) -> frozenset[str]:
+    """Load the flagged candidate ids from ``honeypot_flags.json`` (empty if absent).
+
+    The artifact stores only flagged ids (absence == clean), so the keys are exactly
+    the set ``scoring``/``rank.py`` force to ``final = 0``. Missing file → empty set,
+    so scoring degrades safely rather than crashing if the detector hasn't run.
+    """
+    path = artifacts_dir / HONEYPOT_FLAGS_FILE
+    if not path.exists():
+        return frozenset()
+    data = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(data, dict):
+        return frozenset()
+    return frozenset(data.keys())
 
 
 # --------------------------------------------------------------------------- #

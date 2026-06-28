@@ -8,7 +8,9 @@ even ``rank.py`` could import it without paying a startup cost.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from collections.abc import Mapping
+from dataclasses import dataclass, field
+from types import MappingProxyType
 
 
 @dataclass(frozen=True)
@@ -148,3 +150,200 @@ class HoneypotConfig:
 
 # The single honeypot configuration imported by honeypots.py and the detector CLI.
 HONEYPOT = HoneypotConfig()
+
+
+# --------------------------------------------------------------------------- #
+# Scoring (Session 06). Every map/weight below is a defensible knob the         #
+# Session-08 calibration tunes against the gold set — they live here, once, so   #
+# no scoring literal is scattered across features.py / scoring.py.              #
+# --------------------------------------------------------------------------- #
+
+# role_archetype (from llm_signals) → role_match score. 1.0 = squarely the JD's
+# target (applied-ML / search / ranking / recsys); partial credit for adjacent
+# families; 0 for a clean mismatch. Keys are the controlled vocabulary in
+# ``llm_signals.ROLE_ARCHETYPES`` — a test asserts this map covers it exactly.
+_ROLE_MATCH_SCORES: Mapping[str, float] = MappingProxyType(
+    {
+        "recsys_search": 1.0,  # search / recommendation — the JD bullseye
+        "ml_engineer": 1.0,  # applied ML engineer — the core role
+        "ai_engineer": 0.9,  # adjacent-strong; the LLM-glue risk is a separate flag
+        "data_scientist": 0.6,  # analytical, may lack production ranking systems
+        "data_eng": 0.4,  # builds systems/pipelines, not ranking — adjacent
+        "swe_generic": 0.3,  # generic SWE; could have built systems, not ML-focused
+        "cv_speech": 0.2,  # the JD's CV/speech bait; cv_primary flag adds the bite
+        "non_tech": 0.0,  # clean mismatch
+    }
+)
+
+# domain (from llm_signals) → domain_match score. NLP/IR and recsys/search are the
+# JD's problem space; everything else is adjacent-to-off. Keys = ``llm_signals.DOMAINS``.
+_DOMAIN_MATCH_SCORES: Mapping[str, float] = MappingProxyType(
+    {
+        "nlp_ir": 1.0,  # natural language / information retrieval — the core domain
+        "recsys_search": 1.0,  # ranking / recommendation / search
+        "data_eng": 0.4,  # data infrastructure — adjacent
+        "generic_swe": 0.3,  # general software — weakly adjacent
+        "cv_speech": 0.1,  # computer vision / speech — off-domain bait
+        "non_tech": 0.0,  # off-domain
+    }
+)
+
+# disqualifier_flag (from llm_signals) → points subtracted from base_fit. base_fit
+# itself is in [0, 1] (the term weights sum to 1), so these are calibrated relative
+# to that scale: the JD's explicit "do NOT want" conditions (consulting-only, the
+# CV-primary bait) bite hardest; softer signals (job-hopping) bite least. Flags
+# stack additively — two strong disqualifiers can drive base_fit below 0 (floored).
+# Keys = ``llm_signals.DISQUALIFIER_FLAGS``.
+_PENALTY_PER_FLAG: Mapping[str, float] = MappingProxyType(
+    {
+        "consulting_only": 0.35,  # JD explicitly excludes pure IT-services careers
+        "cv_primary": 0.35,  # CV/speech without NLP/IR — the headline bait
+        "pure_research": 0.30,  # academia-only, no production deployment
+        "langchain_only_recent": 0.30,  # only recent LLM-framework glue, no ML depth
+        "stale_coding": 0.20,  # no hands-on production coding in ~18 months
+        "job_hopper": 0.15,  # frequent title-chasing hops — softest signal
+    }
+)
+
+# Career-text keyword evidence (the w7 term). These are matched against the
+# candidate's CAREER FREE-TEXT (build_embedding_text — title + summary + role
+# descriptions), NOT the structured ``skills`` list the dataset made into uniform
+# noise. A description that says "built a learning-to-rank model evaluated with
+# NDCG" is genuine narrative evidence of doing the work; a skills tag of "RAG" is
+# not. lexical_evidence is the fraction of these categories with ≥1 hit, so breadth
+# of real evidence is rewarded and saturates — and it carries the smallest weight.
+_LEXICAL_KEYWORD_CATEGORIES: Mapping[str, tuple[str, ...]] = MappingProxyType(
+    {
+        "retrieval": (
+            "retrieval",
+            "rag",
+            "semantic search",
+            "dense retrieval",
+            "embedding",
+            "vector search",
+            "nearest neighbor",
+        ),
+        "vector_db": (
+            "pinecone",
+            "weaviate",
+            "qdrant",
+            "milvus",
+            "faiss",
+            "opensearch",
+            "elasticsearch",
+            "vector database",
+            "vector db",
+        ),
+        "ranking": (
+            "ranking",
+            "learning to rank",
+            "learning-to-rank",
+            "recommendation",
+            "recommender",
+            "recsys",
+            "relevance",
+        ),
+        "evaluation": (
+            "ndcg",
+            "mrr",
+            "map@",
+            "a/b test",
+            "ab test",
+            "offline metric",
+            "offline eval",
+            "precision@",
+            "recall@",
+        ),
+    }
+)
+
+# Availability sub-weights — how the behavioral signals blend into the [floor, 1]
+# multiplier. Weights sum to 1.0; recency and engagement dominate, identity
+# verification is a tie-breaker. Keys are the component names produced by
+# ``features._availability_components``.
+_AVAILABILITY_WEIGHTS: Mapping[str, float] = MappingProxyType(
+    {
+        "recency": 0.25,  # last_active_date decayed against the snapshot date
+        "recruiter_response_rate": 0.15,
+        "open_to_work": 0.15,
+        "interview_completion_rate": 0.15,
+        "notice_period": 0.15,  # shorter notice → more available
+        "offer_acceptance": 0.07,  # -1 sentinel (no history) treated as neutral
+        "verified_email": 0.04,
+        "verified_phone": 0.04,
+    }
+)
+
+
+@dataclass(frozen=True)
+class ScoringConfig:
+    """Every knob of the transparent linear score (Session 06; tuned in Session 08).
+
+    The contract (``plan/00_OVERVIEW.md``)::
+
+        base_fit  = w1·career_sim + w2·role_match + w3·domain_match
+                  + w4·product_ratio + w5·seniority_fit + w6·built_ranking
+                  + w7·lexical_evidence
+        penalties = Σ penalty[flag] for flag in disqualifier_flags
+        final     = max(0, base_fit - penalties) · availability · location
+        final     = 0.0 if honeypot
+
+    The seven term weights sum to 1.0 so ``base_fit`` reads as a 0-1 fit before
+    penalties — which makes the penalty and weight magnitudes interpretable at a
+    glance (and defensible line-by-line at Stage 5).
+    """
+
+    # base_fit term weights (w1..w7). Sum to 1.0 — see the class docstring.
+    w_career_sim: float = 0.22  # w1: semantic career↔JD fit (embedding cosine)
+    w_role_match: float = 0.20  # w2: archetype match to the target role family
+    w_domain_match: float = 0.15  # w3: NLP/IR/recsys problem domain
+    w_product_ratio: float = 0.12  # w4: product- vs services/consulting-company career
+    w_seniority_fit: float = 0.08  # w5: inside the JD's experience band
+    w_built_ranking: float = 0.15  # w6: shipped a ranking/search/recsys system (the must-have)
+    w_lexical_evidence: float = 0.08  # w7: corroborating career-text keyword evidence
+
+    # The maps are immutable module-level constants; default_factory hands back the
+    # shared proxy (a frozen dataclass forbids an unhashable mappingproxy as a bare
+    # default, and these are read-only, so sharing one instance is correct).
+    role_match_scores: Mapping[str, float] = field(default_factory=lambda: _ROLE_MATCH_SCORES)
+    domain_match_scores: Mapping[str, float] = field(default_factory=lambda: _DOMAIN_MATCH_SCORES)
+    # Conservative fallback for an off-vocabulary archetype/domain (llm_signals
+    # already coerces unknowns to the generic bucket, so this is belt-and-braces).
+    role_match_default: float = 0.2
+    domain_match_default: float = 0.2
+
+    penalty_per_flag: Mapping[str, float] = field(default_factory=lambda: _PENALTY_PER_FLAG)
+    lexical_keyword_categories: Mapping[str, tuple[str, ...]] = field(
+        default_factory=lambda: _LEXICAL_KEYWORD_CATEGORIES
+    )
+
+    # career_sim: map the embedding cosine to [0, 1] by stretching the band where
+    # this pool actually discriminates. BGE cosine here is high and compressed —
+    # most of the 100k sit at 0.60-0.65 and the signal lives in 0.70-0.80 (Session
+    # 03 EDA / shortlist threshold 0.725). A flat (cos+1)/2 would squash everyone
+    # into ~0.8 and make the term near-constant; this linear window
+    # (clamp((cos - floor)/(ceil - floor), 0, 1)) keeps the weight meaningful.
+    cosine_floor: float = 0.60
+    cosine_ceiling: float = 0.80
+
+    # availability: blend of behavioral signals squashed to [floor, 1.0] so a weak
+    # candidate is never zeroed by availability alone (it is a modifier, not fit).
+    availability_weights: Mapping[str, float] = field(default_factory=lambda: _AVAILABILITY_WEIGHTS)
+    availability_floor: float = 0.5
+    # Recency decay: last_active is scored against a FIXED snapshot date (never
+    # datetime.now()) so rank.py stays byte-identical on re-run. The window is the
+    # dataset snapshot; activity older than the horizon decays to 0.
+    snapshot_date: str = "2026-06-28"
+    recency_horizon_days: int = 180
+    notice_period_max_days: int = 180  # JD-stated 0-180 range; longer → less available
+    open_to_work_false: float = 0.3  # not toggling "open" is weak-negative, not zero
+
+    # location: India or willing-to-relocate is full credit; otherwise a mild
+    # down-weight (the JD is Noida/Pune, India) — never an exclusion.
+    home_country: str = "india"
+    location_penalty: float = 0.85
+
+
+# The single scoring configuration imported by features.py, scoring.py and the
+# Session-08 calibration harness.
+SCORING = ScoringConfig()

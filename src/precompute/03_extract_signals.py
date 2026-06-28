@@ -30,14 +30,11 @@ from __future__ import annotations
 import argparse
 import json
 import logging
-import os
 import sys
-import time
 import warnings
 from collections import Counter
-from collections.abc import Callable, Iterable
+from collections.abc import Iterable
 from pathlib import Path
-from typing import NamedTuple
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
@@ -45,6 +42,12 @@ if str(REPO_ROOT) not in sys.path:
 
 from src.io_utils import load_candidates, use_utf8_stdout  # noqa: E402
 from src.jd_reference import load_jd_reference  # noqa: E402
+from src.llm_providers import (  # noqa: E402
+    DEFAULT_PROVIDER,
+    PROVIDERS,
+    make_call_fn,
+    require_api_key,
+)
 from src.llm_signals import (  # noqa: E402
     FAILURES_FILE,
     LLM_SIGNALS_FILE,
@@ -68,138 +71,9 @@ DEFAULT_BATCH_SIZE = 8
 # call already takes tens of seconds, so this mainly guards the rare fast reply.
 DEFAULT_SLEEP_SECONDS = 6.0
 DEFAULT_SPOT_CHECK = 10
-# Transient-error backoff for a single call (rate limit / 5xx): 5 tries, doubling.
-_CALL_MAX_ATTEMPTS = 5
-_CALL_BASE_BACKOFF = 8.0
 
-
-class Provider(NamedTuple):
-    """One offline LLM backend: where its key lives, its default model, its endpoint.
-
-    ``base_url is None`` selects the native Gemini SDK; any other value is an
-    OpenAI-compatible chat endpoint (Groq, OpenRouter, …) driven by the ``openai``
-    client. Switching providers is the project's escape hatch from a single free
-    tier's daily cap — the cached artifact records which model produced each line.
-    """
-
-    env_key: str
-    default_model: str
-    base_url: str | None
-    # For reasoning models (e.g. gpt-oss): cap hidden reasoning so a batch stays
-    # well under the tokens/minute limit. ``None`` omits the param entirely (plain
-    # chat models like Llama reject it). This is an extraction task, not a hard
-    # reasoning problem, so "low" preserves judgment quality at a fraction of the tokens.
-    reasoning_effort: str | None = None
-
-
-# Free-tier providers blessed by ``02_LLM_API_GUIDE.md``. Gemini-flash's free RPD
-# is only ~20 and Groq's llama-70B is ~100k tokens/day, so neither carries the full
-# shortlist alone; Cerebras (~1M tokens/day) does. Keys live in ``.env`` (gitignored).
-PROVIDERS: dict[str, Provider] = {
-    "gemini": Provider("GEMINI_API_KEY", "gemini-2.5-flash", None),
-    "groq": Provider("GROQ_API_KEY", "llama-3.3-70b-versatile", "https://api.groq.com/openai/v1"),
-    # Cerebras free tier is ~1M tokens/day — enough to carry the whole shortlist in
-    # one sitting. gpt-oss-120b is a reasoning model, so we pin reasoning_effort=low
-    # to keep each batch a predictable ~15k tokens (under the 30k/min cap).
-    "cerebras": Provider(
-        "CEREBRAS_API_KEY", "gpt-oss-120b", "https://api.cerebras.ai/v1", reasoning_effort="low"
-    ),
-    "openrouter": Provider(
-        "OPENROUTER_API_KEY",
-        "meta-llama/llama-3.3-70b-instruct",
-        "https://openrouter.ai/api/v1",
-    ),
-}
-DEFAULT_PROVIDER = "cerebras"
-
-
-def make_call_fn(
-    *, provider: Provider, model_name: str, api_key: str, label: str
-) -> Callable[[str], str]:
-    """Build the real ``call_fn`` for the chosen provider, wrapped in backoff retry.
-
-    The heavy client imports are local so the rest of this module (``--dry-run``,
-    ``--report``) works without the packages or a key. Transient failures (rate
-    limit / 5xx) are retried with exponential backoff *inside* the call, so
-    ``extract_signals`` stays network-agnostic.
-    """
-    raw = (
-        _gemini_call(model_name, api_key)
-        if provider.base_url is None
-        else _openai_compatible_call(
-            base_url=provider.base_url,
-            api_key=api_key,
-            model_name=model_name,
-            reasoning_effort=provider.reasoning_effort,
-        )
-    )
-    return _with_backoff(raw, label)
-
-
-def _gemini_call(model_name: str, api_key: str) -> Callable[[str], str]:
-    """Native Gemini SDK call: JSON-mode, temperature 0."""
-    import google.generativeai as genai
-
-    genai.configure(api_key=api_key)  # type: ignore[attr-defined]
-    model = genai.GenerativeModel(  # type: ignore[attr-defined]
-        model_name,
-        generation_config={"temperature": 0, "response_mime_type": "application/json"},
-    )
-    return lambda prompt: str(model.generate_content(prompt).text)
-
-
-def _openai_compatible_call(
-    *, base_url: str, api_key: str, model_name: str, reasoning_effort: str | None = None
-) -> Callable[[str], str]:
-    """OpenAI-compatible chat call (Groq / Cerebras / OpenRouter): temperature 0.
-
-    JSON-object response mode is intentionally *not* forced: the prompt asks for a
-    JSON *array*, and ``io_utils.parse_json_safe`` already strips any fences/prose,
-    so leaving the format free avoids the array-vs-object friction of strict mode.
-    ``reasoning_effort`` is forwarded only when set (reasoning models); plain chat
-    models reject the param, so it stays absent for them.
-    """
-    from openai import OpenAI
-
-    client = OpenAI(base_url=base_url, api_key=api_key)
-    # Forwarded as extra request-body fields; ``None`` sends nothing (plain chat models).
-    extra_body = {"reasoning_effort": reasoning_effort} if reasoning_effort else None
-
-    def call(prompt: str) -> str:
-        resp = client.chat.completions.create(
-            model=model_name,
-            temperature=0,
-            messages=[{"role": "user", "content": prompt}],
-            extra_body=extra_body,
-        )
-        return resp.choices[0].message.content or ""
-
-    return call
-
-
-def _with_backoff(call: Callable[[str], str], label: str) -> Callable[[str], str]:
-    """Wrap a raw call with exponential backoff on any exception (rate limit / 5xx)."""
-
-    def wrapped(prompt: str) -> str:
-        last_exc: Exception | None = None
-        for attempt in range(_CALL_MAX_ATTEMPTS):
-            try:
-                return call(prompt)
-            except Exception as exc:  # provider SDKs raise varied error types
-                last_exc = exc
-                wait = _CALL_BASE_BACKOFF * (2**attempt)
-                reason = str(exc).splitlines()[0][:200]
-                logger.warning(
-                    "%s call failed (attempt %d): %s -- backing off %.0fs",
-                    label,
-                    attempt + 1,
-                    reason,
-                    wait,
-                )
-                time.sleep(wait)
-        raise RuntimeError(f"{label} call failed after {_CALL_MAX_ATTEMPTS} attempts") from last_exc
-
-    return wrapped
+# The provider layer (Provider/PROVIDERS/make_call_fn/require_api_key) is shared
+# with Session 09's reasoning CLI and lives in ``src/llm_providers.py``.
 
 
 def load_profiles(candidates_path: Path, wanted: set[str]) -> dict[str, str]:
@@ -321,7 +195,7 @@ def run(
     call_fn = make_call_fn(
         provider=provider,
         model_name=model_name,
-        api_key=_require_api_key(provider.env_key),
+        api_key=require_api_key(provider.env_key, env_path=REPO_ROOT / ".env"),
         label=provider_name,
     )
 
@@ -347,20 +221,6 @@ def run(
         logger.warning("%d ids failed after fallback — logged to %s", len(failed), fail_path.name)
 
     report(load_signal_cache(out_path), spot_check=spot_check)
-
-
-def _require_api_key(env_var: str) -> str:
-    """Load ``.env`` and return ``env_var`` or fail with a clear message."""
-    from dotenv import load_dotenv
-
-    load_dotenv(REPO_ROOT / ".env")
-    api_key = os.environ.get(env_var)
-    if not api_key:
-        raise SystemExit(
-            f"{env_var} is not set. Add it to .env (this is precompute only; "
-            "rank.py never reads it)."
-        )
-    return api_key
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:

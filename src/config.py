@@ -116,3 +116,35 @@ class FilterConfig:
 
 # The single filter configuration imported by features.py and build_shortlist.py.
 FILTER = FilterConfig()
+
+
+@dataclass(frozen=True)
+class HoneypotConfig:
+    """Thresholds for the deterministic honeypot detector (Session 05).
+
+    Honeypots are the ~80 "subtly impossible" profiles the challenge injected and
+    forces to relevance tier 0; ranking >10% of them in the top 100 is an instant
+    disqualification. This detector is *insurance* — a flagged candidate is zeroed
+    in ``scoring.py``. Zeroing a real candidate is unrecoverable, so every knob
+    here is tuned for **precision over recall**: strict about true impossibility,
+    lenient about the ordinary messiness of real resumes (see ``docs/schema.md`` —
+    e.g. ``skill.duration_months > yoe*12`` fires on 51% of the pool and is
+    deliberately *not* a rule).
+    """
+
+    # "expert" proficiency in a skill with zero months of use ("claims mastery,
+    # never used it"). Only "expert": in the real pool every such candidate has
+    # 3-5 of these skills (never 1-2), matching the bundle's "expert in N skills,
+    # 0 years used" honeypot; "advanced"+0mo never occurs and is a weaker claim.
+    expert_proficiency: str = "expert"
+
+    # A single career role lasting at least this many months *longer than the
+    # candidate's entire claimed experience* is impossible ("8 years at a company,
+    # 3 years total experience"). The 12-month margin absorbs rounding, part-time
+    # spells, and the float ``years_of_experience`` so only clear contradictions
+    # fire (20 candidates in the pool, disjoint from the expert+0mo set).
+    role_excess_margin_months: int = 12
+
+
+# The single honeypot configuration imported by honeypots.py and the detector CLI.
+HONEYPOT = HoneypotConfig()

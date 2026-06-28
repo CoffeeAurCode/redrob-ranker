@@ -1,0 +1,248 @@
+{
+  "CAND_0003582": {
+    "honeypot": true,
+    "reasons": [
+      "expert_zero_duration"
+    ]
+  },
+  "CAND_0007353": {
+    "honeypot": true,
+    "reasons": [
+      "role_exceeds_experience"
+    ]
+  },
+  "CAND_0008960": {
+    "honeypot": true,
+    "reasons": [
+      "role_exceeds_experience"
+    ]
+  },
+  "CAND_0010294": {
+    "honeypot": true,
+    "reasons": [
+      "role_exceeds_experience"
+    ]
+  },
+  "CAND_0016000": {
+    "honeypot": true,
+    "reasons": [
+      "expert_zero_duration"
+    ]
+  },
+  "CAND_0018515": {
+    "honeypot": true,
+    "reasons": [
+      "role_exceeds_experience"
+    ]
+  },
+  "CAND_0033817": {
+    "honeypot": true,
+    "reasons": [
+      "expert_zero_duration"
+    ]
+  },
+  "CAND_0033972": {
+    "honeypot": true,
+    "reasons": [
+      "expert_zero_duration"
+    ]
+  },
+  "CAND_0035104": {
+    "honeypot": true,
+    "reasons": [
+      "role_exceeds_experience"
+    ]
+  },
+  "CAND_0036839": {
+    "honeypot": true,
+    "reasons": [
+      "expert_zero_duration"
+    ]
+  },
+  "CAND_0037000": {
+    "honeypot": true,
+    "reasons": [
+      "role_exceeds_experience"
+    ]
+  },
+  "CAND_0037539": {
+    "honeypot": true,
+    "reasons": [
+      "role_exceeds_experience"
+    ]
+  },
+  "CAND_0040075": {
+    "honeypot": true,
+    "reasons": [
+      "role_exceeds_experience"
+    ]
+  },
+  "CAND_0040853": {
+    "honeypot": true,
+    "reasons": [
+      "role_exceeds_experience"
+    ]
+  },
+  "CAND_0042245": {
+    "honeypot": true,
+    "reasons": [
+      "expert_zero_duration"
+    ]
+  },
+  "CAND_0042453": {
+    "honeypot": true,
+    "reasons": [
+      "role_exceeds_experience"
+    ]
+  },
+  "CAND_0043721": {
+    "honeypot": true,
+    "reasons": [
+      "role_exceeds_experience"
+    ]
+  },
+  "CAND_0046649": {
+    "honeypot": true,
+    "reasons": [
+      "expert_zero_duration"
+    ]
+  },
+  "CAND_0046689": {
+    "honeypot": true,
+    "reasons": [
+      "expert_zero_duration"
+    ]
+  },
+  "CAND_0048740": {
+    "honeypot": true,
+    "reasons": [
+      "expert_zero_duration"
+    ]
+  },
+  "CAND_0053734": {
+    "honeypot": true,
+    "reasons": [
+      "role_exceeds_experience"
+    ]
+  },
+  "CAND_0055685": {
+    "honeypot": true,
+    "reasons": [
+      "role_exceeds_experience"
+    ]
+  },
+  "CAND_0055792": {
+    "honeypot": true,
+    "reasons": [
+      "expert_zero_duration"
+    ]
+  },
+  "CAND_0056983": {
+    "honeypot": true,
+    "reasons": [
+      "expert_zero_duration"
+    ]
+  },
+  "CAND_0057711": {
+    "honeypot": true,
+    "reasons": [
+      "role_exceeds_experience"
+    ]
+  },
+  "CAND_0060642": {
+    "honeypot": true,
+    "reasons": [
+      "expert_zero_duration"
+    ]
+  },
+  "CAND_0061722": {
+    "honeypot": true,
+    "reasons": [
+      "expert_zero_duration"
+    ]
+  },
+  "CAND_0063888": {
+    "honeypot": true,
+    "reasons": [
+      "expert_zero_duration"
+    ]
+  },
+  "CAND_0064077": {
+    "honeypot": true,
+    "reasons": [
+      "role_exceeds_experience"
+    ]
+  },
+  "CAND_0065096": {
+    "honeypot": true,
+    "reasons": [
+      "expert_zero_duration"
+    ]
+  },
+  "CAND_0065710": {
+    "honeypot": true,
+    "reasons": [
+      "role_exceeds_experience"
+    ]
+  },
+  "CAND_0070189": {
+    "honeypot": true,
+    "reasons": [
+      "role_exceeds_experience"
+    ]
+  },
+  "CAND_0070429": {
+    "honeypot": true,
+    "reasons": [
+      "expert_zero_duration"
+    ]
+  },
+  "CAND_0072379": {
+    "honeypot": true,
+    "reasons": [
+      "expert_zero_duration"
+    ]
+  },
+  "CAND_0073853": {
+    "honeypot": true,
+    "reasons": [
+      "expert_zero_duration"
+    ]
+  },
+  "CAND_0077239": {
+    "honeypot": true,
+    "reasons": [
+      "role_exceeds_experience"
+    ]
+  },
+  "CAND_0084182": {
+    "honeypot": true,
+    "reasons": [
+      "role_exceeds_experience"
+    ]
+  },
+  "CAND_0093364": {
+    "honeypot": true,
+    "reasons": [
+      "role_exceeds_experience"
+    ]
+  },
+  "CAND_0095140": {
+    "honeypot": true,
+    "reasons": [
+      "expert_zero_duration"
+    ]
+  },
+  "CAND_0095317": {
+    "honeypot": true,
+    "reasons": [
+      "expert_zero_duration"
+    ]
+  },
+  "CAND_0095480": {
+    "honeypot": true,
+    "reasons": [
+      "expert_zero_duration"
+    ]
+  }
+}

@@ -4,17 +4,21 @@ Ranks the top 100 of ~100,000 candidates for a Senior AI Engineer JD. The heavy
 "understanding" happens **offline** (LLM + embeddings, baked into `artifacts/`);
 the shipped runtime is a fast, transparent, CPU-only scorer.
 
-> **Status:** scaffolding (Session 00). Sections below are skeletons — filled in
-> as later sessions land. `TODO` markers flag what is not yet wired up.
-
 ## Reproduce the submission
 
 ```bash
-# TODO(session-06+): this is the single Stage-3 reproduce command.
-# Must run on CPU, with no network, in under 5 minutes.
+# The single Stage-3 reproduce command. CPU-only, no network; ~4s, <0.5 GB RSS
+# on the 100k pool (budget: <5 min, <16 GB). Reproduces a byte-identical CSV.
 python src/rank.py --candidates ./data/candidates.jsonl --out ./submission.csv
 python validate_submission.py submission.csv
 ```
+
+`rank.py` loads the precomputed `artifacts/` (committed), scores every candidate
+with the transparent weighted model (`src/features.py` + `src/scoring.py`), and
+writes the top 100 as `candidate_id,rank,score,reasoning`. It re-runs to a
+byte-identical file (scores are sorted on the exact fixed-precision string
+written, so the validator's "score non-increasing, ties by `candidate_id`
+ascending" invariant holds by construction).
 
 ## Offline guarantee (the golden rule)
 
@@ -86,6 +90,28 @@ profiles are the corpus (no prefix); the JD reference (Session 03) is the query
 TODO(session-12): per-artifact provenance table (which script produced each
 file, when, with which model). See `plan/00_OVERVIEW.md` for the full design.
 
+### Rank time (`src/rank.py` — never runs the network or a model)
+
+The entrypoint re-derives everything from the *primary* artifacts (it does not
+depend on the `shortlist_ids.json` precompute intermediate):
+
+1. computes every candidate's cosine to `jd_reference` in one vectorized pass
+   over the mmap'd embeddings;
+2. streams the pool one row at a time, applies the cheap pre-filter
+   (`passes_prefilter`), and scores the survivors (honeypot-flagged → 0);
+3. takes the top 100, sorts by **score descending then `candidate_id`
+   ascending**, and joins the grounded `reasoning.jsonl` (a deterministic,
+   grounded-by-construction fallback covers any id the LLM stage missed, so the
+   runtime stays LLM-free and no cell ships empty).
+
+**Fixed-pool assumption.** The released 100k pool is fixed — the submission spec
+requires every `candidate_id` to exist in the released `candidates.jsonl`, and
+Session 02 verified the embeddings cover the pool 100%. `rank.py` does not embed
+at run time, so an id with no precomputed embedding is **degraded gracefully**
+(treated as non-matching and logged) instead of crashing; the run always emits a
+valid 100-row CSV. A test asserts the import graph contains no network/LLM
+library, mechanically enforcing the offline guarantee.
+
 ## Repository layout
 
 ```
@@ -97,10 +123,10 @@ redrob-ranker/
 ├── artifacts/       # PRECOMPUTED, committed — embeddings, signals, flags, reasoning
 ├── src/
 │   ├── precompute/  # offline scripts (LLM + embeddings); never run at rank time
-│   ├── features.py  # assembles feature vectors from artifacts        TODO
-│   ├── scoring.py   # the transparent weighted score                  TODO
-│   └── rank.py      # ENTRYPOINT — loads artifacts, scores, writes CSV TODO
-├── eval/            # gold labels + NDCG/MAP/P@k evaluation            TODO
-├── tests/           # unit tests for scoring, honeypots, io           TODO
+│   ├── features.py  # assembles feature vectors from artifacts
+│   ├── scoring.py   # the transparent weighted score
+│   └── rank.py      # ENTRYPOINT — loads artifacts, scores, writes CSV
+├── eval/            # gold labels + NDCG/MAP/P@k evaluation
+├── tests/           # unit tests for scoring, honeypots, io, rank
 └── validate_submission.py  # CSV format validator
 ```

@@ -1,30 +1,43 @@
-# Mirror of the submission-portal metadata. Keep honest and in sync with reality.
-# Fill every TODO before submitting (Session 12).
+# Mirror of the submission-portal metadata. Kept honest and in sync with reality.
 
 team:
-  name: TODO            # team / handle as registered on the portal
+  id: Espresso Engineer            # Team ID == team name (per the intro session)
+  name: Espresso Engineer
   members:
     - name: Pranav Raj
-      email: curiosus.steel@gmail.com
-      role: TODO        # e.g. lead / engineer
+      email: btech10657.24@bitmesra.ac.in
+      role: Team Leader
+    - name: Ana Dey
+      email: anadey014@gmail.com
+      role: Designer
 
 submission:
-  github_url: TODO      # public URL of THIS repo (the inner redrob-ranker repo)
+  github_url: https://github.com/CoffeeAurCode/redrob-ranker   # the inner submission repo
   sandbox_link: https://huggingface.co/spaces/CoffeeAurCode/redrob-ranker-sandbox  # live Gradio Space (direct app: https://coffeeaurcode-redrob-ranker-sandbox.hf.space)
   reproduce_command: "python src/rank.py --candidates ./data/candidates.jsonl --out ./submission.csv"
 
-# Declared honestly — which AI tools were used and how (graded for transparency).
+# Declared honestly — exactly which AI tools were used and where (graded for
+# transparency). Every model / network call lives in src/precompute/* only;
+# rank.py (the Stage-3 entrypoint) calls no model and no network.
 ai_tools:
+  - name: Claude Code (Anthropic)
+    used_for: Engineering assistant — scaffolding, code authoring, tests, and review across all sessions.
+    where: Development workflow (not part of the runtime).
+  - name: BAAI/bge-base-en-v1.5 (via sentence-transformers)
+    used_for: Offline candidate + JD reference embeddings (768-d, L2-normalized).
+    where: src/precompute/01_embed_candidates.py and 02_build_jd_reference.py — never inside rank.py.
   - name: Gemini 2.5 Flash (Google AI Studio)
-    used_for: Offline structured signal extraction + JD rubric + reasoning generation.
-    where: src/precompute/* only — never inside rank.py.
-  - name: Claude Code
-    used_for: Scaffolding, code authoring, and review assistance.
+    used_for: One offline call to turn the JD into the scoring rubric + ideal-candidate paragraph.
+    where: src/precompute/02_build_jd_reference.py only.
+  - name: Cerebras gpt-oss-120b (OpenAI-compatible API)
+    used_for: Offline structured signal extraction over the shortlist + grounded reasoning for the top 100.
+    where: src/precompute/03_extract_signals.py and 05_generate_reasoning.py only.
 
 # Compute environment for the reproduce step (must fit the Stage-3 budget).
 compute_env:
   python_version: "3.11"
   cpu_only: true
   network: false
-  max_runtime_minutes: 5
-  max_memory_gb: 16
+  max_runtime_minutes: 5        # budget; measured ~4 s on the full 100k pool
+  max_memory_gb: 16             # budget; measured peak RSS ~0.47 GB
+  developed_on: Windows 11 (x86-64); the runtime is OS-independent (NumPy + stdlib only).

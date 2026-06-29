@@ -15,7 +15,11 @@ extend-exclude = "validate_submission\\.py"
 [tool.ruff]
 line-length = 100
 target-version = "py311"
-extend-exclude = ["validate_submission.py"]
+# validate_submission.py: vendored third-party (see [tool.black] note).
+# notebooks/: the Session-02 Colab embedding notebook runs in Colab with its own
+# globals/paths and is not part of the importable package — black and mypy
+# already skip it, so ruff does too, for consistency.
+extend-exclude = ["validate_submission.py", "notebooks"]
 
 [tool.ruff.lint]
 # E/F pycodestyle+pyflakes, I import-sort, UP pyupgrade, B bugbear,

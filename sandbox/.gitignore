@@ -1,0 +1,4 @@
+# Runtime output (regenerated on every run) and the assembled deploy directory.
+outputs/
+space/
+__pycache__/

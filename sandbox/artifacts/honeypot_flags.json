@@ -1,0 +1,8 @@
+{
+  "CAND_0037000": {
+    "honeypot": true,
+    "reasons": [
+      "role_exceeds_experience"
+    ]
+  }
+}

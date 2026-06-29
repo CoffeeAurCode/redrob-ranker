@@ -10,7 +10,7 @@ team:
 
 submission:
   github_url: TODO      # public URL of THIS repo (the inner redrob-ranker repo)
-  sandbox_link: TODO    # the working sandbox/demo link
+  sandbox_link: https://huggingface.co/spaces/CoffeeAurCode/redrob-ranker-sandbox  # live Gradio Space (direct app: https://coffeeaurcode-redrob-ranker-sandbox.hf.space)
   reproduce_command: "python src/rank.py --candidates ./data/candidates.jsonl --out ./submission.csv"
 
 # Declared honestly — which AI tools were used and how (graded for transparency).

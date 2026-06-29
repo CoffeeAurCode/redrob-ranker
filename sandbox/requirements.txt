@@ -1,0 +1,14 @@
+# Sandbox (Hugging Face Space) runtime — the OFFLINE ranker only.
+#
+# Deliberately tiny: NO torch / sentence-transformers / openai / google-generativeai.
+# The app loads precomputed artifacts and imports the same pure scoring code rank.py
+# ships, so the rank path never touches a model or the network (a test in
+# tests/test_sandbox.py mechanically asserts this, mirroring rank.py's offline guard).
+#
+# numpy/pandas are left UNPINNED on purpose: gradio constrains them (it requires
+# pandas<3) and brings compatible builds for the Space's interpreter. Over-pinning
+# them (e.g. pandas==3.0.3) makes pip's resolver fail against gradio. The ranker's
+# output is deterministic across these patch versions (float16 store, float32 dot).
+gradio==5.50.0
+numpy
+pandas

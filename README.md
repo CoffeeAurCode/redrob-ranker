@@ -188,3 +188,12 @@ redrob-ranker/
 ├── tests/           # unit tests for scoring, honeypots, io, rank
 └── validate_submission.py  # CSV format validator
 ```
+
+## License
+
+This project's code is released under the **MIT License** (see [`LICENSE`](LICENSE)).
+
+Two files/paths are **excluded** because they are organizer-provided, vendored
+only for reproducibility, and remain under their own terms: the official
+`validate_submission.py` and everything under `docs/challenge/` (the Redrob / H2S
+challenge bundle).
